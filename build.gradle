@@ -1,0 +1,121 @@
+buildscript {
+	repositories { mavenCentral() }
+	dependencies {
+		classpath "org.springframework.boot:spring-boot-gradle-plugin:2.6.3"
+		classpath 'org.springframework:springloaded:1.2.8.RELEASE'
+	}
+}
+plugins {
+	id 'com.google.cloud.tools.jib' version '3.2.0'
+}
+apply plugin: 'java'
+apply plugin: 'io.spring.dependency-management'
+apply plugin: 'org.springframework.boot'
+apply plugin: 'idea'
+
+
+group 'de.axitera'
+version '1.0-SNAPSHOT'
+
+repositories {
+	mavenCentral()
+}
+
+idea {
+	module {
+		inheritOutputDirs = false
+		outputDir = file("$buildDir/classes/java/main/")
+	}
+}
+
+bootJar {
+	classpath configurations.developmentOnly
+}
+
+ext {
+	testContainers = '1.16.3'
+	serviceImageName = 'de.axitera/mosesonline/mymeetup'
+}
+jib {
+	to.image = 'de.axitera/mosesonline/mymeetup'
+}
+bootBuildImage {
+	imageName = serviceImageName
+}
+configurations {
+	containerTestImplementation.extendsFrom testImplementation
+	containerTestRuntimeOnly.extendsFrom testRuntimeOnly
+	embeddedTestImplementation.extendsFrom testImplementation
+	embeddedTestRuntimeOnly.extendsFrom testRuntimeOnly
+}
+dependencyManagement {
+	imports {
+		mavenBom 'org.springframework.cloud:spring-cloud-dependencies:2021.0.1'
+	}
+}
+
+ext['junit-jupiter.version'] = '5.8.2'
+ext['postgresql.version'] = '42.3.3'
+ext['tomcat.version'] = '9.0.58'
+
+dependencies {
+	implementation('org.springframework.boot:spring-boot-starter-web')
+	implementation('org.springframework.boot:spring-boot-starter-data-jpa')
+	developmentOnly("org.springframework.boot:spring-boot-devtools")
+	implementation 'org.springframework.kafka:spring-kafka'
+	implementation 'org.postgresql:postgresql'
+
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.junit.jupiter:junit-jupiter-api'
+	testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine'
+
+	//container
+	containerTestImplementation "org.testcontainers:kafka:${testContainers}"
+	containerTestImplementation "org.testcontainers:postgresql:${testContainers}"
+	containerTestImplementation "org.testcontainers:testcontainers:${testContainers}"
+	containerTestImplementation "org.testcontainers:junit-jupiter:${testContainers}"
+
+	//embedded
+	embeddedTestImplementation("io.zonky.test:embedded-database-spring-test:2.1.1")
+	embeddedTestImplementation("io.zonky.test:embedded-postgres:1.3.1")
+	embeddedTestImplementation 'org.springframework.kafka:spring-kafka-test'
+}
+
+test {
+	useJUnitPlatform()
+}
+
+sourceSets {
+	containerTest {
+		java {
+			compileClasspath += main.output + test.output
+			runtimeClasspath += main.output + test.output
+			srcDir file('src/test-by-container/java')
+		}
+		resources.srcDir file('src/test-by-container/resources')
+	}
+}
+
+sourceSets {
+	embeddedTest {
+		java {
+			compileClasspath += main.output + test.output
+			runtimeClasspath += main.output + test.output
+			srcDir file('src/test-by-embedded/java')
+		}
+		resources.srcDir file('src/test-by-embedded/resources')
+	}
+}
+task containerTest(type: Test) {
+	useJUnitPlatform()
+	testClassesDirs = sourceSets.containerTest.output.classesDirs
+	classpath = sourceSets.containerTest.runtimeClasspath
+	outputs.upToDateWhen { false }
+
+}
+task embeddedTest(type: Test) {
+	useJUnitPlatform()
+	testClassesDirs = sourceSets.embeddedTest.output.classesDirs
+	classpath = sourceSets.embeddedTest.runtimeClasspath
+	outputs.upToDateWhen { false }
+}
