@@ -1,0 +1,11 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Remote" type="Application" factoryName="Application">
+    <option name="MAIN_CLASS_NAME" value="org.springframework.boot.devtools.RemoteSpringApplication" />
+    <module name="nice-2-meet-u-service.main" />
+    <option name="PROGRAM_PARAMETERS" value="http://localhost:28080" />
+    <option name="VM_PARAMETERS" value="-Denv=dev" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

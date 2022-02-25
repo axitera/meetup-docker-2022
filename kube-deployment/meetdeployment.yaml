@@ -1,0 +1,174 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: untrusted-deploy
+spec:
+  selector:
+    matchLabels:
+      app: untrusted
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: untrusted
+#      annotations:
+#        io.kubernetes.cri.untrusted-workload: "true"
+    spec:
+      runtimeClassName: kata # RuntimeClass oder
+      imagePullSecrets:
+        - name: regcred
+      containers:
+        - name: service
+          imagePullPolicy: Always
+          image: ghcr.io/axitera/meetup-docker-2022/nice-2-meet-u-service:latest
+          env:
+            - name: KAFKA_HOST
+              value: untrusted-kafka
+            - name: DB_HOST
+              value: untrusted-database
+          ports:
+          - name: app-port
+            containerPort: 8080
+          - name: moni-port
+            containerPort: 9000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: expose-untrusted
+spec:
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+    - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+    - nodePort: 32254
+      port: 8080
+      protocol: TCP
+      targetPort: 8080
+  selector:
+    app: untrusted
+  type: NodePort
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trusted-deploy
+spec:
+  selector:
+    matchLabels:
+      app: trusted
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: trusted
+    spec:
+      imagePullSecrets:
+        - name: regcred
+      containers:
+        - name: service
+          imagePullPolicy: Always
+          image: ghcr.io/axitera/meetup-docker-2022/nice-2-meet-u-service:latest
+          env:
+            - name: KAFKA_HOST
+              value: untrusted-kafka
+            - name: DB_HOST
+              value: untrusted-database
+          ports:
+            - name: app-port
+              containerPort: 8080
+            - name: moni-port
+              containerPort: 9000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: expose-trusted
+spec:
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+    - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+    - nodePort: 32255
+      port: 8080
+      protocol: TCP
+      targetPort: 8080
+  selector:
+    app: trusted
+  type: NodePort
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: untrusted-database-deploy
+spec:
+  selector:
+    matchLabels:
+      app: untrusted-database
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: untrusted-database
+    spec:
+      containers:
+        - name: database
+          image: postgres:14-alpine
+          env:
+            - name: POSTGRES_PASSWORD
+              value: postgres
+            - name: POSTGRES_DB
+              value: meetup
+          ports:
+            - containerPort: 5432
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: untrusted-database
+spec:
+  selector:
+    app: untrusted-database
+  ports:
+  - protocol: TCP
+    port: 5432
+    targetPort: 5432
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: untrusted-kafka-deploy
+spec:
+  selector:
+    matchLabels:
+      app: untrusted-kafka
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: untrusted-kafka
+    spec:
+      containers:
+        - name: kafka
+          image: lensesio/fast-data-dev
+          env:
+            - name: ADV_HOST
+              value: untrusted-kafka
+          ports:
+            - containerPort: 9092
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: untrusted-kafka
+spec:
+  selector:
+    app: untrusted-kafka
+  ports:
+    - protocol: TCP
+      port: 9092
+      targetPort: 9092

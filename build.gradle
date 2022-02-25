@@ -1,17 +1,28 @@
 buildscript {
+	ext {
+		testContainers = '1.16.3'
+		ghProjectUrl = "https://github.com/axitera/meetup-docker-2022"
+		ghProjectLabel = "org.opencontainers.image.source"
+		isDev = System.properties['env'] == 'dev' // devtools
+	}
 	repositories { mavenCentral() }
+
 	dependencies {
-		classpath "org.springframework.boot:spring-boot-gradle-plugin:2.6.3"
-		classpath 'org.springframework:springloaded:1.2.8.RELEASE'
+		classpath 'org.springframework.boot:spring-boot-gradle-plugin:2.6.6'
+		classpath 'com.bmuschko:gradle-docker-plugin:7.3.0'
+		classpath 'org.springframework:springloaded:1.2.8.RELEASE' // devtools
 	}
 }
 plugins {
-	id 'com.google.cloud.tools.jib' version '3.2.0'
+	id 'com.google.cloud.tools.jib' version '3.2.1'
+	id 'com.bmuschko.docker-spring-boot-application' version '7.3.0'
 }
+
 apply plugin: 'java'
 apply plugin: 'io.spring.dependency-management'
 apply plugin: 'org.springframework.boot'
 apply plugin: 'idea'
+apply plugin: com.bmuschko.gradle.docker.DockerRemoteApiPlugin
 
 
 group 'de.axitera'
@@ -28,20 +39,46 @@ idea {
 	}
 }
 
-bootJar {
-	classpath configurations.developmentOnly
+bootJar { // additional devtools configuration
+	if(isDev) {
+		classpath configurations.developmentOnly
+	}
 }
 
 ext {
-	testContainers = '1.16.3'
-	serviceImageName = 'de.axitera/mosesonline/mymeetup'
+	serviceImageName = 'ghcr.io/axitera/meetup-docker-2022/nice-2-meet-u-service'
 }
-jib {
-	to.image = 'de.axitera/mosesonline/mymeetup'
-}
+
+// spring-boot-plugin
 bootBuildImage {
 	imageName = serviceImageName
 }
+// spring-boot-plugin
+
+// bmuschko plugin
+docker {
+	springBootApplication {
+		baseImage = 'openjdk:17'
+		ports = [8080, 9000]
+		images = ["${serviceImageName}:latest"]
+		jvmArgs = ['-Dspring.profiles.active=production', '-Xmx2048m']
+	}
+}
+dockerCreateDockerfile {
+	label([ghProjectLabel: ghProjectUrl])
+}
+// bmuschko plugin
+
+// jib
+jib {
+	to.image = "${serviceImageName}"
+	container {
+		labels = [ghProjectLabel: ghProjectUrl]
+		ports = ["8080", "9000"]
+	}
+}
+// jib
+
 configurations {
 	containerTestImplementation.extendsFrom testImplementation
 	containerTestRuntimeOnly.extendsFrom testRuntimeOnly
@@ -55,13 +92,12 @@ dependencyManagement {
 }
 
 ext['junit-jupiter.version'] = '5.8.2'
-ext['postgresql.version'] = '42.3.3'
-ext['tomcat.version'] = '9.0.58'
 
 dependencies {
 	implementation('org.springframework.boot:spring-boot-starter-web')
 	implementation('org.springframework.boot:spring-boot-starter-data-jpa')
-	developmentOnly("org.springframework.boot:spring-boot-devtools")
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	developmentOnly("org.springframework.boot:spring-boot-devtools") // devtools
 	implementation 'org.springframework.kafka:spring-kafka'
 	implementation 'org.postgresql:postgresql'
 

@@ -1,13 +1,14 @@
 version: '3.8'
 services:
   service:
-    image: de.axitera/mosesonline/mymeetup:latest
+    image: ghcr.io/axitera/meetup-docker-2022/nice-2-meet-u-service:latest
     environment:
-      - KAFKA_HOST=172.21.171.70
+      - KAFKA_HOST=${MY_HOST_IP}
       - JAVA_OPTS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:8000
     ports:
       - 28080:8080
       - 28000:8000
+      - 29000:9000
     depends_on:
       - database
       - kafka
@@ -19,7 +20,7 @@ services:
   kafka:
     image: lensesio/fast-data-dev
     environment:
-      - ADV_HOST=172.21.171.70
+      - ADV_HOST=${MY_HOST_IP}
     ports:
       - "2181:2181"
       - "3030:3030"

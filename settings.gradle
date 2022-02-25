@@ -1,1 +1,8 @@
-rootProject.name = 'sb-devtools'
+pluginManagement {
+	repositories {
+		maven { url 'https://repo.spring.io/release' }
+		gradlePluginPortal()
+	}
+}
+
+rootProject.name = 'nice-2-meet-u-service'
